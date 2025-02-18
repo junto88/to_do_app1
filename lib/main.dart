@@ -12,13 +12,15 @@ import 'package:google_sign_in/google_sign_in.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-   
+    try {
     if (Firebase.apps.isEmpty) {  
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
     }
- 
+  } catch (e) {
+   
+  }
   
  FirebaseFirestore.instance.settings = Settings(
     persistenceEnabled: false,
@@ -74,24 +76,26 @@ Stream<QuerySnapshot> _getUserLists() {
   if (user != null) {
     return FirebaseFirestore.instance
         .collection('lists')
-        .where('userId', isEqualTo: user.uid) 
+        .where('userId', isEqualTo: user.uid) //  Filtra solo le liste dell'utente loggato
         .snapshots();
   }
   return Stream.empty();
 }
 
 Future<void> _logout() async {
- 
+  try {
     await FirebaseAuth.instance.signOut();
-    await GoogleSignIn().disconnect();
-    await GoogleSignIn().signOut(); 
+    await GoogleSignIn().disconnect(); // Disconnette completamente l'account Google
+    await GoogleSignIn().signOut(); // Rimuove l'account dalla cache
 
-    
+    //  Dopo il logout, reindirizza l'utente alla pagina di login
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => LoginPage()),
     );
-
+  } catch (e) {
+    print("Errore durante il logout: $e");
+  }
 }
 
   void _pickColor(BuildContext context) {
@@ -141,7 +145,7 @@ Future<void> _logout() async {
     'title': _listTitleController.text.trim(),
     'description': _listDescriptionController.text.trim(),
     'color': _selectedColor.value,
-    'userId': user.uid, 
+    'userId': user.uid, //  Importante per Firestore
   }).then((docRef) {
     
   }).catchError((error) {
@@ -172,7 +176,7 @@ Future<void> _logout() async {
           IconButton(
   icon: Icon(Icons.logout),
   onPressed: () async {
-    await _logout(); 
+    await _logout(); // Chiamata alla funzione di logout
   },
 ),
         ],
@@ -290,7 +294,7 @@ Stream<QuerySnapshot> _getUserTasks() {
         .collection('lists')
         .doc(widget.listId)
         .collection('tasks')
-        .where('userId', isEqualTo: user.uid) 
+        .where('userId', isEqualTo: user.uid) // ✅ Filtra i task per l'utente attuale
         .snapshots();
   }
   return Stream.empty();
