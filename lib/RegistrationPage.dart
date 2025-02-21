@@ -54,35 +54,53 @@ class _RegistrationPageState extends State<RegistrationPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               TextField(
+                cursorColor: Colors.brown,
                 controller: _emailController,
                 decoration: InputDecoration(
                   labelText: 'Email',
-                  border: OutlineInputBorder(),
+                    labelStyle: TextStyle(color: Colors.black),
+                    floatingLabelStyle: TextStyle(color: Colors.brown), border: OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.brown, width: 3.0)),
                   filled: true,
                       fillColor: Colors.white54
                 ),
+                style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 18.0,fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 10),
               TextField(
+                cursorColor: Colors.brown,
                 controller: _passwordController,
                 decoration: InputDecoration(
                   labelText: 'Password',
-                  border: OutlineInputBorder(),
+                    labelStyle: TextStyle(color: Colors.black),
+                    floatingLabelStyle: TextStyle(color: Colors.brown), border: OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.brown, width: 3.0)),
                   filled: true,
                       fillColor: Colors.white54
                 ),
                 obscureText: true,
+                style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 18.0,fontWeight: FontWeight.bold),
               ),
+
               SizedBox(height: 10),
               TextField(
+                cursorColor: Colors.brown,
                 controller: _confirmPasswordController,
                 decoration: InputDecoration(
-                  labelText: 'Conferma Password',
-                  border: OutlineInputBorder(),
+                  labelText: 'Conferma Password',labelStyle: TextStyle(color: Colors.black),
+                    floatingLabelStyle: TextStyle(color: Colors.brown), border: OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.brown, width: 3.0)),
                   filled: true,
                       fillColor: Colors.white54
                 ),
                 obscureText: true,
+                style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 18.0,fontWeight: FontWeight.bold),
               ),
               if (_errorMessage.isNotEmpty)
                 Padding(

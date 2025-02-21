@@ -41,12 +41,16 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
 
   Future<void> _signInWithGoogle() async {
-  setState(() => _isLoading = true); 
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
 
   try {
     final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
     if (googleUser == null) {
-      setState(() => _isLoading = false); 
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
       return;
     }
 
@@ -71,7 +75,9 @@ class _LoginPageState extends State<LoginPage> {
 
 
   Future<void> _signInWithEmail() async {
-    setState(() => _isLoading = true);
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
@@ -113,22 +119,34 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     SizedBox(height: 10),
                     TextField(
+                      cursorColor: Colors.brown,
                       controller: _emailController,
-                      decoration: InputDecoration(labelText: "Email", border: OutlineInputBorder(),
+                      decoration: InputDecoration(labelText: "Email",labelStyle: TextStyle(color: Colors.black),
+                          floatingLabelStyle: TextStyle(color: Colors.brown), border: OutlineInputBorder(),
+                          focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.brown, width: 3.0)),
+
                       filled: true,
                       fillColor: Colors.white54
-
                       ),
+                      style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 18.0,fontWeight: FontWeight.bold),
                     ),
                     SizedBox(height: 10),
                     TextField(
+                      cursorColor: Colors.brown,
                       controller: _passwordController,
-                      decoration: InputDecoration(labelText: "Password", border: OutlineInputBorder(),
+                      decoration: InputDecoration(labelText: "Password",labelStyle: TextStyle(color: Colors.black),
+                          floatingLabelStyle: TextStyle(color: Colors.brown), border: OutlineInputBorder(),
+                          focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.brown, width: 3.0)),
                       filled: true,
                       fillColor: Colors.white54
 
                       ),
-                      obscureText: true,
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 18.0,fontWeight: FontWeight.bold),
+                          obscureText: true,
                       
                     ),
                     if (_errorMessage.isNotEmpty)
@@ -160,9 +178,15 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
           if (_isLoading)
-            Container(
-              color: Colors.black.withAlpha(128),
-              child: Center(child: CircularProgressIndicator(color: Colors.brown,)),
+            AnimatedOpacity(
+              duration: Duration(milliseconds: 300),
+              opacity: _isLoading ? 1.0 : 0.0,
+              child: Container(
+                color: Colors.black.withAlpha(128),
+                child: Center(
+                  child: CircularProgressIndicator(color: Colors.brown),
+                ),
+              ),
             ),
         ],
       ),

@@ -23,7 +23,7 @@ void main() async {
   }
   
  FirebaseFirestore.instance.settings = Settings(
-    persistenceEnabled: false,
+    persistenceEnabled: true,
   );
 
 
@@ -82,21 +82,37 @@ Stream<QuerySnapshot> _getUserLists() {
   return Stream.empty();
 }
 
-Future<void> _logout() async {
-  try {
-    await FirebaseAuth.instance.signOut();
-    await GoogleSignIn().disconnect(); // Disconnette completamente l'account Google
-    await GoogleSignIn().signOut(); // Rimuove l'account dalla cache
 
-    //  Dopo il logout, reindirizza l'utente alla pagina di login
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => LoginPage()),
-    );
-  } catch (e) {
-    print("Errore durante il logout: $e");
+  @override
+  void dispose() {
+    _listTitleController.dispose();
+    _listDescriptionController.dispose();
+    super.dispose();
   }
-}
+
+
+  Future<void> _logout() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      await GoogleSignIn().disconnect();
+      await GoogleSignIn().signOut();
+
+
+      Future.delayed(Duration.zero, () {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => LoginPage()),
+          );
+        }
+      });
+    } catch (e) {
+      print("Errore durante il logout: $e");
+    }
+  }
+
+
+
 
   void _pickColor(BuildContext context) {
     showDialog(
@@ -146,6 +162,7 @@ Future<void> _logout() async {
     'description': _listDescriptionController.text.trim(),
     'color': _selectedColor.value,
     'userId': user.uid, //  Importante per Firestore
+    'icon': 'list',
   }).then((docRef) {
     
   }).catchError((error) {
@@ -157,28 +174,118 @@ Future<void> _logout() async {
 }
 
 
+  void _showIconPickerDialog(String listId) {
+    List<IconData> availableIcons = [
+      Icons.work, Icons.home, Icons.school, Icons.shopping_cart, Icons.favorite,
+      Icons.star, Icons.fitness_center, Icons.music_note, Icons.local_dining,
+    ];
 
-  void _deleteList(String id) {
-    lists.doc(id).delete();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Scegli un'icona", style: GoogleFonts.poppins(fontSize: 18)),
+          content: Wrap(
+            spacing: 10,
+            children: availableIcons.map((icon) {
+              return IconButton(
+                icon: Icon(icon, size: 30),
+                onPressed: () {
+                  _saveIconSelection(listId, icon);
+                  Navigator.of(context).pop();
+                },
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+
+  String _getIconName(IconData icon) {
+    Map<IconData, String> iconMap = {
+      Icons.work: "work",
+      Icons.home: "home",
+      Icons.school: "school",
+      Icons.shopping_cart: "shopping_cart",
+      Icons.favorite: "favorite",
+      Icons.star: "star",
+      Icons.fitness_center: "fitness_center",
+      Icons.music_note: "music_note",
+      Icons.local_dining: "local_dining",
+    };
+    return iconMap[icon] ?? "list";
+  }
+
+  IconData _getIconFromName(String name) {
+    Map<String, IconData> iconMap = {
+      "work": Icons.work,
+      "home": Icons.home,
+      "school": Icons.school,
+      "shopping_cart": Icons.shopping_cart,
+      "favorite": Icons.favorite,
+      "star": Icons.star,
+      "fitness_center": Icons.fitness_center,
+      "music_note": Icons.music_note,
+      "local_dining": Icons.local_dining,
+      "list": Icons.list, // Default
+    };
+    return iconMap[name] ?? Icons.list;
+  }
+
+
+
+  void _saveIconSelection(String listId, IconData icon) {
+    String iconName = _getIconName(icon); // Converte l'icona in stringa
+    lists.doc(listId).update({'icon': iconName});
+  }
+
+
+
+  Future<void> _deleteList(String listId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return; 
+    try {
+
+      QuerySnapshot taskSnapshot = await FirebaseFirestore.instance
+          .collection('lists')
+          .doc(listId)
+          .collection('tasks')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+
+      for (QueryDocumentSnapshot doc in taskSnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+
+      await FirebaseFirestore.instance.collection('lists').doc(listId).delete();
+      print("Lista e task eliminati correttamente!");
+    } catch (e) {
+      print("Errore durante l'eliminazione: $e");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Center(child: Text('Liste di Attività', style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold))),
+        title: Center(
+          child: Text('Liste di Attività', style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold)),
+        ),
         backgroundColor: Colors.brown.shade200,
-         actions: [
+        actions: [
           IconButton(
             icon: Icon(Icons.brightness_6),
             onPressed: widget.onThemeChanged,
           ),
           IconButton(
-  icon: Icon(Icons.logout),
-  onPressed: () async {
-    await _logout(); // Chiamata alla funzione di logout
-  },
-),
+            icon: Icon(Icons.logout),
+            onPressed: () async {
+              await _logout(); // Chiamata alla funzione di logout
+            },
+          ),
         ],
       ),
       body: Column(
@@ -198,7 +305,7 @@ Future<void> _logout() async {
                     ),
                   ),
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 TextField(
                   cursorColor: Colors.brown,
                   controller: _listDescriptionController,
@@ -210,59 +317,42 @@ Future<void> _logout() async {
                     ),
                   ),
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 ElevatedButton(
                   onPressed: () => _pickColor(context),
                   child: Text('Scegli Colore', style: GoogleFonts.poppins()),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.brown,foregroundColor: Colors.white),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.brown, foregroundColor: Colors.white),
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 ElevatedButton(
                   onPressed: _createList,
                   child: Text('Crea Lista', style: GoogleFonts.poppins()),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.brown, foregroundColor: Colors.white),
-                )
+                ),
               ],
             ),
           ),
           Expanded(
-            child: StreamBuilder(
-              stream: _getUserLists(), 
-              builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Center(child: Text('Nessuna lista disponibile.'));
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _getUserLists(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return Center(child: CircularProgressIndicator(color: Colors.brown));
                 }
-                return ListView(
-                  children: snapshot.data!.docs.map((doc) {
-                     Color listColor = (doc.data() as Map<String, dynamic>).containsKey('color') 
-    ? Color(doc['color']) 
-    : Colors.brown.shade200; 
-                    return Container(
-                      margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-                      padding: EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                        color: listColor,
-                        borderRadius: BorderRadius.circular(15),
-                       
-                      ),
-                      child: ListTile(
-                        title: Text(doc['title'], style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                        subtitle: Text(doc['description'], style: GoogleFonts.poppins(color: Colors.white)),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => TaskScreen(listId: doc.id, listTitle: doc['title']),
-                            ),
-                          );
-                        },
-                        trailing: IconButton(
-                          icon: Icon(Icons.delete, color: Colors.white, size: 28),
-                          onPressed: () => _deleteList(doc.id),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+
+                final lists = snapshot.data!.docs;
+
+                if (lists.isEmpty) {
+                  return Center(child: Text('Nessuna lista disponibile.', style: GoogleFonts.poppins(fontSize: 16)));
+                }
+
+                return ListView.builder(
+                  key: ValueKey(lists.length), // ✅ Evita ricostruzioni inutili
+                  itemCount: lists.length,
+                  itemBuilder: (context, index) {
+                    final doc = lists[index];
+                    return _buildListTile(doc);
+                  },
                 );
               },
             ),
@@ -271,6 +361,44 @@ Future<void> _logout() async {
       ),
     );
   }
+
+  Widget _buildListTile(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    Color listColor = data.containsKey('color') ? Color(data['color']) : Colors.brown.shade200;
+    String? iconName = data['icon']; // Recupera l'icona salvata
+    IconData selectedIcon = iconName != null ? _getIconFromName(iconName) : Icons.list;
+
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+      padding: EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: listColor,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: ListTile(
+        leading: GestureDetector(
+          onTap: () => _showIconPickerDialog(doc.id), // Apri il selettore di icone
+          child: Icon(selectedIcon, color: Colors.white, size: 30),
+        ),
+        title: Text(data['title'],
+            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+        subtitle: Text(data['description'], style: GoogleFonts.poppins(color: Colors.white)),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TaskScreen(listId: doc.id, listTitle: data['title']),
+            ),
+          );
+        },
+        trailing: IconButton(
+          icon: Icon(Icons.delete, color: Colors.white, size: 28),
+          onPressed: () => _deleteList(doc.id),
+        ),
+      ),
+    );
+  }
+
 }
 
 class TaskScreen extends StatefulWidget {
@@ -311,11 +439,11 @@ Stream<QuerySnapshot> _getUserTasks() {
         .add({
       'title': _taskController.text.trim(),
       'completed': false,
-      'userId': user.uid, 
+      'userId': user.uid,
     }).then((docRef) {
-      
+
     }).catchError((error) {
-      
+
     });
 
     _taskController.clear();
@@ -365,48 +493,60 @@ Stream<QuerySnapshot> _getUserTasks() {
             ),
           ),
           Expanded(
-  child: StreamBuilder(
-    stream: _getUserTasks(),
-    builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-      if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
-      return ListView(
-        children: snapshot.data!.docs.map((doc) {
-          return Container(
-            margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-            padding: EdgeInsets.all(15),
-            decoration: BoxDecoration(
-              color: Colors.brown.shade100,
-              borderRadius: BorderRadius.circular(15),
-              
+            child: StreamBuilder(
+              stream: _getUserTasks(),
+              builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator(color: Colors.brown));
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(child: Text('Nessun task disponibile.'));
+                }
+                return ListView(
+                  children: snapshot.data!.docs.map((doc) {
+                    return _buildTaskItem(doc);
+                  }).toList(),
+                );
+              },
             ),
-            child: ListTile(
-              title: Text(
-                doc['title'],
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  decoration: doc['completed'] ? TextDecoration.lineThrough : null,
-                ),
-              ),
-              leading: Checkbox(
-                value: doc['completed'],
-                onChanged: (value) => _toggleTask(doc.id, doc['completed']),
-                activeColor: Colors.brown,
-                checkColor: Colors.white,
-              ),
-              trailing: IconButton(
-                icon: Icon(Icons.delete, color: Colors.red.shade400, size: 28),
-                onPressed: () => _deleteTask(doc.id),
-              ),
-            ),
-          );
-        }).toList(),
-      );
-    },
-  ),
-),
+          ),
+
 
         ],
+      ),
+    );
+  }
+
+
+  Widget _buildTaskItem(QueryDocumentSnapshot doc) {
+    return Container(
+      key: ValueKey(doc.id),
+      margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+      padding: EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.brown.shade100,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: ListTile(
+        title: Text(
+          doc['title'],
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            decoration: doc['completed'] ? TextDecoration.lineThrough : null,
+            decorationThickness: doc['completed'] ? 3.0 : 0,
+          ),
+        ),
+        leading: Checkbox(
+          value: doc['completed'],
+          onChanged: (value) => _toggleTask(doc.id, doc['completed']),
+          activeColor: Colors.brown,
+          checkColor: Colors.white,
+        ),
+        trailing: IconButton(
+          icon: Icon(Icons.delete, color: Colors.red.shade400, size: 28),
+          onPressed: () => _deleteTask(doc.id),
+        ),
       ),
     );
   }
